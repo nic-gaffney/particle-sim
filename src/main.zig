@@ -1,6 +1,5 @@
 const std = @import("std");
 const rl = @import("raylib");
-var gpa = std.heap.GeneralPurposeAllocator(.{}){};
 
 const particle = struct {
     color: rl.Color,
@@ -14,6 +13,7 @@ const particle = struct {
 const particleAttrs = struct {};
 const screenWidth = 1920;
 const screenHeight = 1080;
+const particleMax = 5000;
 
 pub fn main() !void {
     rl.initWindow(screenWidth, screenHeight, "Particle Simulator");
@@ -21,15 +21,11 @@ pub fn main() !void {
 
     rl.setTargetFPS(60);
 
-    var particles = try initParticles(200);
-    defer particles.deinit();
-    defer {
-        switch (gpa.deinit()) {
-            std.heap.Check.leak => std.debug.print("\n\nLEAKS!!!!\n\n", .{}),
-            std.heap.Check.ok => std.debug.print("No leaks :3", .{}),
-        }
-    }
-    std.debug.print("{}\n", .{particles.items.len});
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+
+    var particles = try initParticles(gpa.allocator(), 1);
+    defer particles.deinit(gpa.allocator());
 
     while (!rl.windowShouldClose()) {
         rl.beginDrawing();
@@ -37,46 +33,46 @@ pub fn main() !void {
 
         defer rl.endDrawing();
 
-        for (0..particles.items.len) |i| {
-            updateParticle(&particles.items[i]);
-            drawParticle(particles.items[i]);
-        }
+        for (particles.items(.y), particles.items(.yvel)) |*y, yvel|
+            y.* = @mod((y.* + yvel), screenHeight);
 
-        rl.clearBackground(rl.Color.white);
+        for (particles.items(.x), particles.items(.xvel)) |*x, xvel|
+            x.* = @mod((x.* + xvel), screenWidth);
+
+        for (particles.items(.y), particles.items(.x), particles.items(.color)) |*y, *x, color|
+            rl.drawRectangle(x.*, y.*, 1, 1, color);
+
+        if (particles.slice().len < particleMax) try particles.append(gpa.allocator(), createParticle(.{}));
+        std.debug.print("{}\n", .{particles.slice().len});
+
+        rl.clearBackground(rl.Color.black);
     }
 }
 
-inline fn drawParticle(p: particle) void {
-    rl.drawCircle(p.x, p.y, 1, p.color);
-}
-
-fn updateParticle(p: *particle) void {
-    p.x = @mod((p.x + p.xvel), screenWidth);
-    p.y = @mod((p.y + p.yvel), screenHeight);
-}
-
-fn createParticle(x: i32, y: i32, color: rl.Color, attrs: particleAttrs) particle {
+/// Generates a particle with a random Color and Location
+pub fn createParticle(attrs: particleAttrs) particle {
+    const seed = @as(u64, @truncate(@as(u128, @bitCast(std.time.nanoTimestamp()))));
+    var prng = std.rand.DefaultPrng.init(seed);
+    const colors = [_]rl.Color{ rl.Color.red, rl.Color.blue, rl.Color.green };
+    const x = prng.random().uintLessThan(u32, screenWidth);
+    const y = prng.random().uintLessThan(u32, screenHeight);
+    const color = colors[prng.random().uintLessThan(u32, 3)];
     return particle{
         .color = color,
         .attrs = attrs,
-        .x = x,
-        .y = y,
+        .x = @intCast(x),
+        .y = @intCast(y),
         .xvel = 5,
         .yvel = -7,
     };
 }
 
-fn initParticles(amnt: u32) !std.ArrayList(particle) {
-    const colors = [_]rl.Color{ rl.Color.red, rl.Color.blue, rl.Color.green };
-    const seed = @as(u64, @truncate(@as(u128, @bitCast(std.time.nanoTimestamp()))));
-    var prng = std.rand.DefaultPrng.init(seed);
-
-    var particles = std.ArrayList(particle).init(gpa.allocator());
+/// Initialize a MultiArrayList of size amnt with particles created by createParticle
+pub fn initParticles(allocator: std.mem.Allocator, amnt: u32) !std.MultiArrayList(particle) {
+    var particles = std.MultiArrayList(particle){};
+    try particles.setCapacity(allocator, 10000);
     for (0..amnt) |_| {
-        const x = prng.random().uintLessThan(u32, screenWidth);
-        const y = prng.random().uintLessThan(u32, screenHeight);
-        const color = colors[prng.random().uintLessThan(u32, 3)];
-        try particles.append(createParticle(@intCast(x), @intCast(y), color, .{}));
+        try particles.append(allocator, createParticle(.{}));
     }
     return particles;
 }

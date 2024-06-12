@@ -2,20 +2,58 @@ const std = @import("std");
 const rl = @import("raylib");
 
 const particle = struct {
-    color: rl.Color,
+    colorId: u32,
     attrs: particleAttrs,
     x: i32,
     y: i32,
-    xvel: i32,
-    yvel: i32,
+    xvel: f32,
+    yvel: f32,
 };
 
 const particleAttrs = struct {};
-const screenWidth = 1920;
-const screenHeight = 1080;
+const screenWidth = 2560;
+const screenHeight = 1440;
 const particleMax = 5000;
+const radius = 50.0;
+const minDistance = 10.0;
 
 pub fn main() !void {
+    const colors = [_]rl.Color{
+        rl.Color.red,
+        rl.Color.green,
+        rl.Color.blue,
+        rl.Color.yellow,
+        rl.Color.magenta,
+        rl.Color.brown,
+    };
+
+    const rules = ruleMatrix(colors.len);
+    std.debug.print(
+        \\|   | R  |  G  |  B  |  Y
+        \\| R | {d:.1} | {d:.1} | {d:.1} | {d:.1}
+        \\| G | {d:.1} | {d:.1} | {d:.1} | {d:.1}
+        \\| B | {d:.1} | {d:.1} | {d:.1} | {d:.1}
+        \\| Y | {d:.1} | {d:.1} | {d:.1} | {d:.1}
+        \\
+    , .{
+        rules[0][0],
+        rules[0][1],
+        rules[0][2],
+        rules[0][3],
+        rules[1][0],
+        rules[1][1],
+        rules[1][2],
+        rules[1][3],
+        rules[2][0],
+        rules[2][1],
+        rules[2][2],
+        rules[2][3],
+        rules[3][0],
+        rules[3][1],
+        rules[3][2],
+        rules[3][3],
+    });
+
     rl.initWindow(screenWidth, screenHeight, "Particle Simulator");
     defer rl.closeWindow();
 
@@ -24,7 +62,7 @@ pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
 
-    var particles = try initParticles(gpa.allocator(), 1);
+    var particles = try initParticles(gpa.allocator(), 3000);
     defer particles.deinit(gpa.allocator());
 
     while (!rl.windowShouldClose()) {
@@ -33,19 +71,59 @@ pub fn main() !void {
 
         defer rl.endDrawing();
 
+        updateVelocities(particles, rules);
+
         for (particles.items(.y), particles.items(.yvel)) |*y, yvel|
-            y.* = @mod((y.* + yvel), screenHeight);
+            y.* = @mod(@as(i32, @intFromFloat(@round((@as(f32, @floatFromInt(y.*)) + yvel)))), screenHeight);
 
         for (particles.items(.x), particles.items(.xvel)) |*x, xvel|
-            x.* = @mod((x.* + xvel), screenWidth);
+            x.* = @mod(@as(i32, @intFromFloat(@round((@as(f32, @floatFromInt(x.*)) + xvel)))), screenWidth);
 
-        for (particles.items(.y), particles.items(.x), particles.items(.color)) |*y, *x, color|
-            rl.drawRectangle(x.*, y.*, 1, 1, color);
-
-        if (particles.slice().len < particleMax) try particles.append(gpa.allocator(), createParticle(.{}));
-        std.debug.print("{}\n", .{particles.slice().len});
+        for (particles.items(.y), particles.items(.x), particles.items(.colorId)) |*y, *x, colorId|
+            rl.drawRectangle(x.*, y.*, 5, 5, colors[colorId]);
 
         rl.clearBackground(rl.Color.black);
+    }
+}
+
+fn force(distance: f32, attraction: f32) f32 {
+    const beta = minDistance / radius;
+    const r: f32 = distance / radius;
+    if (r < beta)
+        return 3 * (r / beta - 1.0);
+    if (beta < r and r < 1)
+        return attraction * (1 - @abs(2.0 * r - 1.0 - beta) / (1.0 - beta));
+    return 0;
+}
+
+fn updateVelocities(particles: std.MultiArrayList(particle), rules: [6][6]f32) void {
+    const colors = particles.items(.colorId);
+    var xvel = particles.items(.xvel);
+    var yvel = particles.items(.yvel);
+    for (particles.items(.x), particles.items(.y), 0..) |x, y, i| {
+        var forceX: f32 = 0.0;
+        var forceY: f32 = 0.0;
+
+        for (particles.items(.x), particles.items(.y), 0..) |x2, y2, j| {
+            if (i == j) continue;
+            const rx: f32 = @floatFromInt(x - x2);
+            const ry: f32 = @floatFromInt(y - y2);
+            var r = @sqrt(rx * rx + ry * ry);
+            if (r == 0) {
+                r = 0.1;
+            }
+            if (r > 0 and r < radius) {
+                const f = force(r, rules[colors[i]][colors[j]]);
+                forceX = forceX + rx / r * f;
+                forceY = forceY + ry / r * f;
+            }
+        }
+
+        forceX = forceX * 2;
+        forceY = forceY * 2;
+
+        xvel[i] = xvel[i] * 0.95 + forceX;
+        yvel[i] = yvel[i] * 0.95 + forceY;
     }
 }
 
@@ -53,18 +131,32 @@ pub fn main() !void {
 pub fn createParticle(attrs: particleAttrs) particle {
     const seed = @as(u64, @truncate(@as(u128, @bitCast(std.time.nanoTimestamp()))));
     var prng = std.rand.DefaultPrng.init(seed);
-    const colors = [_]rl.Color{ rl.Color.red, rl.Color.blue, rl.Color.green };
     const x = prng.random().uintLessThan(u32, screenWidth);
     const y = prng.random().uintLessThan(u32, screenHeight);
-    const color = colors[prng.random().uintLessThan(u32, 3)];
+    const color = prng.random().uintLessThan(u32, 6);
     return particle{
-        .color = color,
+        .colorId = color,
         .attrs = attrs,
         .x = @intCast(x),
         .y = @intCast(y),
-        .xvel = 5,
-        .yvel = -7,
+        .xvel = 0,
+        .yvel = 0,
     };
+}
+
+fn ruleMatrix(comptime size: u32) [size][size]f32 {
+    const seed = @as(u64, @truncate(@as(u128, @bitCast(std.time.nanoTimestamp()))));
+    var prng = std.rand.DefaultPrng.init(seed);
+    var rules: [size][size]f32 = undefined;
+    for (0..size) |i| {
+        for (0..size) |j| {
+            var val = prng.random().float(f32);
+            const isNeg = prng.random().uintAtMost(u8, 1);
+            if (isNeg == 1) val = 0 - val;
+            rules[i][j] = val;
+        }
+    }
+    return rules;
 }
 
 /// Initialize a MultiArrayList of size amnt with particles created by createParticle

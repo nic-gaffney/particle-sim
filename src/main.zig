@@ -14,45 +14,22 @@ const particleAttrs = struct {};
 const screenWidth = 2560;
 const screenHeight = 1440;
 const particleMax = 5000;
-const radius = 50.0;
-const minDistance = 10.0;
+const radius = 100.0;
+const minDistance = 20.0;
+const colors = [_]rl.Color{
+    rl.Color.red,
+    rl.Color.green,
+    rl.Color.blue,
+    rl.Color.yellow,
+    rl.Color.magenta,
+    rl.Color.brown,
+    rl.Color.orange,
+};
+const colorAmnt = colors.len;
 
 pub fn main() !void {
-    const colors = [_]rl.Color{
-        rl.Color.red,
-        rl.Color.green,
-        rl.Color.blue,
-        rl.Color.yellow,
-        rl.Color.magenta,
-        rl.Color.brown,
-    };
-
     const rules = ruleMatrix(colors.len);
-    std.debug.print(
-        \\|   | R  |  G  |  B  |  Y
-        \\| R | {d:.1} | {d:.1} | {d:.1} | {d:.1}
-        \\| G | {d:.1} | {d:.1} | {d:.1} | {d:.1}
-        \\| B | {d:.1} | {d:.1} | {d:.1} | {d:.1}
-        \\| Y | {d:.1} | {d:.1} | {d:.1} | {d:.1}
-        \\
-    , .{
-        rules[0][0],
-        rules[0][1],
-        rules[0][2],
-        rules[0][3],
-        rules[1][0],
-        rules[1][1],
-        rules[1][2],
-        rules[1][3],
-        rules[2][0],
-        rules[2][1],
-        rules[2][2],
-        rules[2][3],
-        rules[3][0],
-        rules[3][1],
-        rules[3][2],
-        rules[3][3],
-    });
+    printRules(rules);
 
     rl.initWindow(screenWidth, screenHeight, "Particle Simulator");
     defer rl.closeWindow();
@@ -86,18 +63,46 @@ pub fn main() !void {
     }
 }
 
+fn colorToString(c: usize) []const u8 {
+    return switch (c) {
+        0 => "R",
+        1 => "G",
+        2 => "Bl",
+        3 => "Y",
+        4 => "M",
+        5 => "Br",
+        6 => "O",
+        else => " ",
+    };
+}
+
+fn printRules(rules: [colorAmnt][colorAmnt]f32) void {
+    std.debug.print("\n|{s:^6}", .{"Rules"});
+    for (0..colors.len) |c|
+        std.debug.print("| {s:^4} ", .{colorToString(c)});
+
+    std.debug.print("|\n", .{});
+    for (rules, 0..) |row, i| {
+        std.debug.print("| {s:^4} ", .{colorToString(i)});
+        for (row) |col|
+            std.debug.print("| {d:^4.1} ", .{col});
+
+        std.debug.print("|\n", .{});
+    }
+}
+
 fn force(distance: f32, attraction: f32) f32 {
     const beta = minDistance / radius;
     const r: f32 = distance / radius;
     if (r < beta)
-        return 3 * (r / beta - 1.0);
-    if (beta < r and r < 1)
+        return -(r / beta - 1.0);
+    if (beta <= r and r < 1)
         return attraction * (1 - @abs(2.0 * r - 1.0 - beta) / (1.0 - beta));
     return 0;
 }
 
-fn updateVelocities(particles: std.MultiArrayList(particle), rules: [6][6]f32) void {
-    const colors = particles.items(.colorId);
+fn updateVelocities(particles: std.MultiArrayList(particle), rules: [colorAmnt][colorAmnt]f32) void {
+    const colorList = particles.items(.colorId);
     var xvel = particles.items(.xvel);
     var yvel = particles.items(.yvel);
     for (particles.items(.x), particles.items(.y), 0..) |x, y, i| {
@@ -110,17 +115,17 @@ fn updateVelocities(particles: std.MultiArrayList(particle), rules: [6][6]f32) v
             const ry: f32 = @floatFromInt(y - y2);
             var r = @sqrt(rx * rx + ry * ry);
             if (r == 0) {
-                r = 0.1;
+                r = 0.0001;
             }
             if (r > 0 and r < radius) {
-                const f = force(r, rules[colors[i]][colors[j]]);
+                const f = force(r, rules[colorList[i]][colorList[j]]);
                 forceX = forceX + rx / r * f;
                 forceY = forceY + ry / r * f;
             }
         }
 
-        forceX = forceX * 2;
-        forceY = forceY * 2;
+        forceX = forceX * minDistance / radius;
+        forceY = forceY * minDistance / radius;
 
         xvel[i] = xvel[i] * 0.95 + forceX;
         yvel[i] = yvel[i] * 0.95 + forceY;
@@ -133,7 +138,7 @@ pub fn createParticle(attrs: particleAttrs) particle {
     var prng = std.rand.DefaultPrng.init(seed);
     const x = prng.random().uintLessThan(u32, screenWidth);
     const y = prng.random().uintLessThan(u32, screenHeight);
-    const color = prng.random().uintLessThan(u32, 6);
+    const color = prng.random().uintLessThan(u32, colorAmnt);
     return particle{
         .colorId = color,
         .attrs = attrs,

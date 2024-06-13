@@ -34,6 +34,21 @@ pub fn printRules(rules: [cfg.colorAmnt][cfg.colorAmnt]f32) void {
     }
 }
 
+/// Convert the color index to a string
+pub fn colorToString(c: usize) []const u8 {
+    return switch (c) {
+        0 => "R",
+        1 => "Grn",
+        2 => "Bl",
+        3 => "Y",
+        4 => "M",
+        5 => "Br",
+        6 => "O",
+        7 => "Gry",
+        else => " ",
+    };
+}
+
 /// Initialize a MultiArrayList of size amnt with particles created by createParticle
 pub fn initParticles(allocator: std.mem.Allocator, amnt: u32) !std.MultiArrayList(particle) {
     var particles = std.MultiArrayList(particle){};
@@ -98,19 +113,6 @@ const particle = struct {
     xvel: f32,
     yvel: f32,
 };
-
-fn colorToString(c: usize) []const u8 {
-    return switch (c) {
-        0 => "R",
-        1 => "G",
-        2 => "Bl",
-        3 => "Y",
-        4 => "M",
-        5 => "Br",
-        6 => "O",
-        else => " ",
-    };
-}
 
 fn force(distance: f32, attraction: f32) f32 {
     const beta = cfg.minDistance / cfg.radius;

@@ -20,15 +20,15 @@ pub fn ruleMatrix() [cfg.colorAmnt][cfg.colorAmnt]f32 {
 
 /// Prints rules generated from ruleMatrix()
 pub fn printRules(rules: [cfg.colorAmnt][cfg.colorAmnt]f32) void {
-    std.debug.print("\n|{s:^6}", .{"Rules"});
+    std.debug.print("\n| {s:^7} ", .{"Rules"});
     for (0..cfg.colors.len) |c|
-        std.debug.print("| {s:^4} ", .{colorToString(c)});
+        std.debug.print("| {s:^7} ", .{colorToString(c)});
 
     std.debug.print("|\n", .{});
     for (rules, 0..) |row, i| {
-        std.debug.print("| {s:^4} ", .{colorToString(i)});
+        std.debug.print("| {s:^7} ", .{colorToString(i)});
         for (row) |col|
-            std.debug.print("| {d:^4.1} ", .{col});
+            std.debug.print("| {d:^7.1} ", .{col});
 
         std.debug.print("|\n", .{});
     }

@@ -124,7 +124,7 @@ fn force(distance: f32, attraction: f32) f32 {
     return 0;
 }
 
-fn createParticle() particle {
+pub fn createParticle() particle {
     const seed = @as(u64, @truncate(@as(u128, @bitCast(std.time.nanoTimestamp()))));
     var prng = std.rand.DefaultPrng.init(seed);
     const x = prng.random().uintLessThan(u32, cfg.screenWidth);

@@ -36,6 +36,16 @@ pub fn main() !void {
     defer particles.deinit(gpa.allocator());
 
     while (!rl.windowShouldClose()) {
+        if (particles.items(.x).len < cfg.particleCount) {
+            for (0..@intCast(cfg.particleCount - @as(i32, @intCast(particles.items(.x).len)))) |_| {
+                try particles.append(gpa.allocator(), part.createParticle());
+            }
+        }
+
+        if (particles.items(.x).len > cfg.particleCount) {
+            particles.shrinkRetainingCapacity(@intCast(cfg.particleCount));
+        }
+
         rl.beginDrawing();
         defer rl.endDrawing();
         if (rl.isKeyPressed(rl.KeyboardKey.key_q)) break;

@@ -52,7 +52,7 @@ pub fn update() !void {
         for (&cfg.rules, 0..) |*row, i| {
             _ = z.tableNextRow(.{});
             _ = z.tableSetColumnIndex(0);
-            z.text("Row {}", .{i + 1});
+            z.text("{s}", .{part.colorToString(i)});
             _ = z.tableNextColumn();
             for (row, 0..) |*cols, j| {
                 var id: [2:0]u8 = undefined;

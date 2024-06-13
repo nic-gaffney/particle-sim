@@ -37,14 +37,14 @@ pub fn printRules(rules: [cfg.colorAmnt][cfg.colorAmnt]f32) void {
 /// Convert the color index to a string
 pub fn colorToString(c: usize) []const u8 {
     return switch (c) {
-        0 => "R",
-        1 => "Grn",
-        2 => "Bl",
-        3 => "Y",
-        4 => "M",
-        5 => "Br",
-        6 => "O",
-        7 => "Gry",
+        0 => "Red",
+        1 => "Green",
+        2 => "Blue",
+        3 => "Yellow",
+        4 => "Magenta",
+        5 => "Brown",
+        6 => "Orange",
+        7 => "Gray",
         else => " ",
     };
 }

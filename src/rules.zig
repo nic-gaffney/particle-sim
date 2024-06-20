@@ -33,12 +33,12 @@ pub fn printRules(rules: [cfg.colorAmnt][cfg.colorAmnt]f32) void {
     }
 }
 
+/// Loads rules from a csv
 pub fn loadRules(allocator: std.mem.Allocator, absolutePath: [:0]u8) !void {
     const file = try std.fs.openFileAbsoluteZ(absolutePath, .{ .mode = .read_only });
     defer file.close();
     var reader = file.reader();
     for (&cfg.rules) |*row| {
-        std.debug.print("Row\n", .{});
         for (row) |*col| {
             const buf = try reader.readUntilDelimiterAlloc(allocator, ',', 16);
             defer allocator.free(buf);
@@ -48,6 +48,7 @@ pub fn loadRules(allocator: std.mem.Allocator, absolutePath: [:0]u8) !void {
     }
 }
 
+/// Save rules to a csv
 pub fn saveRules(absolutePath: [:0]u8) !void {
     const file = try std.fs.createFileAbsoluteZ(absolutePath, .{ .read = true });
     defer file.close();

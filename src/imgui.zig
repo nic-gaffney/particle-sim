@@ -1,7 +1,7 @@
 const std = @import("std");
 const rl = @import("raylib");
 const z = @import("zgui");
-const part = @import("particle.zig");
+const rul = @import("rules.zig");
 const cfg = @import("config.zig");
 
 const c = @cImport({
@@ -9,7 +9,7 @@ const c = @cImport({
     @cInclude("rlImGui.h");
 });
 
-pub fn update() !void {
+pub fn update(alloc: std.mem.Allocator, buf: [:0]u8) !void {
     c.rlImGuiBegin();
     defer c.rlImGuiEnd();
 
@@ -28,12 +28,6 @@ pub fn update() !void {
         _ = z.sliderFloat("Minimum Distance", .{ .v = &cfg.minDistance, .min = 1.0, .max = 100.0 });
     }
     if (z.collapsingHeader("Ruleset", .{ .default_open = true })) {
-        // comptime var string: [:0]const u8 = "";
-        // comptime for (0..cfg.colors.len) |cols| {
-        //     string = string ++ part.colorToString(cols) ++ "\t\t\t\t\t";
-        // };
-        //
-        // z.text("{s:<}", .{string});
         _ = z.beginTable("Rules", .{
             .column = cfg.colorAmnt + 1,
             .flags = .{},
@@ -46,13 +40,13 @@ pub fn update() !void {
         z.text("Rules", .{});
         for (0..cfg.colorAmnt) |i| {
             _ = z.tableNextColumn();
-            z.text("{s}", .{part.colorToString(i)});
+            z.text("{s}", .{rul.colorToString(i)});
         }
 
         for (&cfg.rules, 0..) |*row, i| {
             _ = z.tableNextRow(.{});
             _ = z.tableSetColumnIndex(0);
-            z.text("{s}", .{part.colorToString(i)});
+            z.text("{s}", .{rul.colorToString(i)});
             _ = z.tableNextColumn();
             for (row, 0..) |*cols, j| {
                 var id: [2:0]u8 = undefined;
@@ -63,6 +57,18 @@ pub fn update() !void {
                 _ = z.inputFloat(&id, .{ .v = cols, .step = 0.001, .step_fast = 0.1 });
                 _ = z.popItemWidth();
             }
+        }
+    }
+    if (z.collapsingHeader("Load / Save", .{ .default_open = true })) {
+        _ = z.inputText("Save Path", .{ .buf = buf });
+        if (z.button("Save", .{})) {
+            const path = buf;
+            _ = rul.saveRules(path) catch void;
+        }
+        _ = z.inputText("Load Path", .{ .buf = buf });
+        if (z.button("Load", .{})) {
+            const path = buf;
+            _ = rul.loadRules(alloc, path) catch void;
         }
     }
 }

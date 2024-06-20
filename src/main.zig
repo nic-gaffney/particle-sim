@@ -4,6 +4,7 @@ const z = @import("zgui");
 const part = @import("particle.zig");
 const cfg = @import("config.zig");
 const img = @import("imgui.zig");
+const rules = @import("rules.zig");
 
 const c = @cImport({
     @cDefine("NO_FONT_AWESOME", "1");
@@ -11,8 +12,8 @@ const c = @cImport({
 });
 
 pub fn main() !void {
-    cfg.rules = part.ruleMatrix();
-    part.printRules(cfg.rules);
+    cfg.rules = rules.ruleMatrix();
+    rules.printRules(cfg.rules);
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa.deinit();
@@ -35,6 +36,10 @@ pub fn main() !void {
     var particles = try part.initParticles(gpa.allocator(), cfg.initialParticles);
     defer particles.deinit(gpa.allocator());
 
+    const buf = try gpa.allocator().allocSentinel(u8, 128, 0);
+    std.mem.copyForwards(u8, buf, "Absolute File Path" ++ .{0});
+    defer gpa.allocator().free(buf);
+
     while (!rl.windowShouldClose()) {
         if (particles.items(.x).len < cfg.particleCount) {
             for (0..@intCast(cfg.particleCount - @as(i32, @intCast(particles.items(.x).len)))) |_| {
@@ -54,6 +59,6 @@ pub fn main() !void {
         part.updateVelocities(particles, cfg.rules);
         part.updatePosition(particles);
         part.draw(particles);
-        try img.update();
+        try img.update(gpa.allocator(), buf);
     }
 }

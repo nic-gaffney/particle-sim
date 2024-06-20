@@ -6,7 +6,7 @@ pub fn build(b: *std.Build) !void {
 
     const exe = b.addExecutable(.{
         .name = "particle-sim",
-        .root_source_file = .{ .path = "src/main.zig" },
+        .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -27,7 +27,7 @@ pub fn build(b: *std.Build) !void {
     });
     exe.root_module.addImport("zgui", zgui.module("root"));
     exe.linkLibrary(zgui.artifact("imgui"));
-    exe.addIncludePath(.{ .path = "vendor/zgui/libs/imgui" });
+    exe.addIncludePath(b.path("vendor/zgui/libs/imgui"));
 
     const rlimgui = b.dependency("rlimgui", .{
         .target = target,

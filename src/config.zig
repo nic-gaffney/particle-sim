@@ -1,10 +1,10 @@
 const rl = @import("raylib");
 const part = @import("particle.zig");
 
-pub const screenWidth = 2560;
-pub const screenHeight = 1440;
-pub const particleMax = 4000;
-pub const initialParticles = 3000;
+pub const screenWidth = 2880;
+pub const screenHeight = 1620;
+pub const particleMax = 5000;
+pub const initialParticles = 2000;
 pub const colorAmnt = colors.len;
 
 pub var particleCount: i32 = initialParticles;

@@ -6,9 +6,9 @@ const rl = @import("raylib");
 pub fn initParticles(allocator: std.mem.Allocator, amnt: u32) !std.MultiArrayList(particle) {
     var particles = std.MultiArrayList(particle){};
     try particles.setCapacity(allocator, cfg.particleMax);
-    for (0..amnt) |_| {
+    for (0..amnt) |_|
         try particles.append(allocator, createParticle());
-    }
+
     return particles;
 }
 
@@ -25,29 +25,22 @@ pub fn updateVelocities(particles: std.MultiArrayList(particle), rules: [cfg.col
             if (i == j) continue;
             var check2x = x - cfg.screenWidth;
             var check2y = y - cfg.screenWidth;
-            if (x < cfg.screenWidth / 2)
-                check2x = x + cfg.screenWidth;
-            if (y < cfg.screenHeight / 2)
-                check2y = y + cfg.screenHeight;
+            if (x < cfg.screenWidth / 2) check2x = x + cfg.screenWidth;
+            if (y < cfg.screenHeight / 2) check2y = y + cfg.screenHeight;
 
             var rx: f32 = @floatFromInt(x - x2);
             var ry: f32 = @floatFromInt(y - y2);
             const check2rx: f32 = @floatFromInt(check2x - x2);
             const check2ry: f32 = @floatFromInt(check2y - y2);
 
-            const r1 = @sqrt(rx * rx + ry * ry);
-            const r2 = @sqrt(rx * rx + check2ry * check2ry);
-            const r3 = @sqrt(check2rx * check2rx + check2ry * check2ry);
-            const r4 = @sqrt(check2rx * check2rx + ry * ry);
-
-            var r = @min(@min(r1, r2), @min(r3, r4));
-
             if (@abs(rx) > @abs(check2rx)) rx = check2rx;
             if (@abs(ry) > @abs(check2ry)) ry = check2ry;
 
-            if (r == 0) {
-                r = 0.0001;
-            }
+            if (rx > cfg.radius or ry > cfg.radius) continue;
+
+            var r = @sqrt(rx * rx + ry * ry);
+
+            if (r == 0) r = 0.0001;
             if (r > 0 and r < cfg.radius) {
                 const f = force(r, rules[colorList[i]][colorList[j]]);
                 forceX = forceX + rx / r * f;

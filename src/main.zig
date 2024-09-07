@@ -43,6 +43,7 @@ pub fn main() !void {
     while (!rl.windowShouldClose()) {
         if (particles.items(.x).len < cfg.particleCount) {
             for (0..@intCast(cfg.particleCount - @as(i32, @intCast(particles.items(.x).len)))) |_| {
+                std.debug.print("without this print statement it breaks on arm idk why {d}\n", .{cfg.particleCount});
                 try particles.append(gpa.allocator(), part.createParticle());
             }
         }

@@ -5,12 +5,9 @@
     .dependencies = .{
         .@"raylib-zig" = .{
             .url = "https://github.com/Not-Nik/raylib-zig/archive/devel.tar.gz",
-            .hash = "12204a223b19043e17b79300413d02f60fc8004c0d9629b8d8072831e352a78bf212",
+            .hash = "1220fc554f109a45a77ee5c58b4a847936dc0b24dcbed818b65a02de1b58500041dc",
         },
-        .rlimgui = .{
-            .url = "https://github.com/raylib-extras/rlImGui/archive/30cd744e9d291644fc39d5b0fb79ad6c132f2b40.tar.gz",
-            .hash = "122060e605015c47a3a79a61fccd00d1c81548503000b89346557b0a5eb9d9ed8be5",
-        },
+        .rlimgui = .{ .path = "vendor/rlImGui-main" },
         .zgui = .{ .path = "vendor/zgui" },
     },
 }

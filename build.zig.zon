@@ -1,6 +1,6 @@
 .{
     .name = "particle-sim",
-    .version = "0.1.2",
+    .version = "0.2.0",
     .paths = .{ "src", "vendor" },
     .dependencies = .{
         .@"raylib-zig" = .{

@@ -12,6 +12,7 @@ const c = @cImport({
 });
 
 pub fn main() !void {
+    cfg.colors = cfg.customColors();
     cfg.rules = rules.ruleMatrix();
     rules.printRules(cfg.rules);
 
@@ -22,6 +23,7 @@ pub fn main() !void {
     defer rl.closeWindow();
 
     rl.setTargetFPS(60);
+    rl.setWindowState(rl.ConfigFlags{ .window_resizable = true });
 
     c.rlImGuiSetup(true);
     defer c.rlImGuiShutdown();
@@ -39,6 +41,8 @@ pub fn main() !void {
     const buf = try gpa.allocator().allocSentinel(u8, 128, 0);
     std.mem.copyForwards(u8, buf, "Absolute File Path" ++ .{0});
     defer gpa.allocator().free(buf);
+    const pool = try gpa.allocator().alloc(std.Thread, cfg.numThreads);
+    defer gpa.allocator().free(pool);
 
     while (!rl.windowShouldClose()) {
         if (particles.items(.x).len < cfg.particleCount) {
@@ -55,9 +59,15 @@ pub fn main() !void {
         rl.beginDrawing();
         defer rl.endDrawing();
         if (rl.isKeyPressed(rl.KeyboardKey.key_q)) break;
-        rl.clearBackground(rl.Color.black);
+        rl.clearBackground(rl.getColor(0x1E1E2EFF));
 
-        part.updateVelocities(particles, cfg.rules);
+        for (pool, 0..) |*thread, i|
+            thread.* = try std.Thread.spawn(.{}, part.updateVelocities, .{ &particles, i });
+
+        for (pool) |thread|
+            thread.join();
+
+        // part.updateVelocities(particles, cfg.rules);
         part.updatePosition(particles);
         part.draw(particles);
         try img.update(gpa.allocator(), buf);

@@ -24,8 +24,8 @@ pub fn update(alloc: std.mem.Allocator, buf: [:0]u8) !void {
             cfg.minDistance = 20.0;
         }
         _ = z.sliderInt("Particles", .{ .v = &cfg.particleCount, .min = 1, .max = cfg.particleMax });
-        _ = z.sliderFloat("Radius", .{ .v = &cfg.radius, .min = 1, .max = 500 });
-        _ = z.sliderFloat("Minimum Distance", .{ .v = &cfg.minDistance, .min = 1.0, .max = 100.0 });
+        _ = z.sliderFloat("Radius", .{ .v = &cfg.radius, .min = cfg.minDistance, .max = 500 });
+        _ = z.sliderFloat("Minimum Distance", .{ .v = &cfg.minDistance, .min = 1.0, .max = cfg.radius });
     }
     if (z.collapsingHeader("Ruleset", .{ .default_open = true })) {
         _ = z.beginTable("Rules", .{
@@ -34,7 +34,6 @@ pub fn update(alloc: std.mem.Allocator, buf: [:0]u8) !void {
             .outer_size = .{ 0, 0 },
             .inner_width = 0,
         });
-        defer z.endTable();
         _ = z.tableNextRow(.{});
         _ = z.tableSetColumnIndex(0);
         z.text("Rules", .{});
@@ -58,6 +57,9 @@ pub fn update(alloc: std.mem.Allocator, buf: [:0]u8) !void {
                 _ = z.popItemWidth();
             }
         }
+        z.endTable();
+        if (z.button("Randomize", .{}))
+            cfg.rules = rul.ruleMatrix();
     }
     if (z.collapsingHeader("Load / Save", .{ .default_open = true })) {
         _ = z.inputText("Save Path", .{ .buf = buf });

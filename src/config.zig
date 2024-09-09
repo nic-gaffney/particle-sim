@@ -1,16 +1,18 @@
+const std = @import("std");
 const rl = @import("raylib");
 const part = @import("particle.zig");
 
-pub const screenWidth = 2880;
-pub const screenHeight = 1620;
-pub const particleMax = 5000;
+pub const screenWidth = 1920;
+pub const screenHeight = 1080;
+pub const particleMax = 10000;
 pub const initialParticles = 2000;
 pub const colorAmnt = colors.len;
+pub const numThreads = 12;
 
 pub var particleCount: i32 = initialParticles;
 pub var radius: f32 = 100.0;
 pub var minDistance: f32 = 20.0;
-pub const colors = [_]rl.Color{
+pub var colors = [_]rl.Color{
     rl.Color.red,
     rl.Color.green,
     rl.Color.blue,
@@ -20,4 +22,18 @@ pub const colors = [_]rl.Color{
     rl.Color.orange,
     rl.Color.gray,
 };
+
+pub fn customColors() [8]rl.Color {
+    return .{
+        rl.getColor(0xF38BA8FF),
+        rl.getColor(0xA6E3A1FF),
+        rl.getColor(0x89B4FAFF),
+        rl.getColor(0xF9E2AFFF),
+        rl.getColor(0xF5C2E7FF),
+        rl.getColor(0x94E2D5FF),
+        rl.getColor(0xBAC2DEFF),
+        rl.getColor(0xCBA6F7FF),
+    };
+}
+
 pub var rules: [colorAmnt][colorAmnt]f32 = undefined;

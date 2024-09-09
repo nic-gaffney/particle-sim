@@ -2,6 +2,13 @@ const cfg = @import("config.zig");
 const std = @import("std");
 const rl = @import("raylib");
 
+pub const particle = struct {
+    colorId: u32,
+    x: i32,
+    y: i32,
+    xvel: f32,
+    yvel: f32,
+};
 /// Initialize a MultiArrayList of size amnt with particles created by createParticle
 pub fn initParticles(allocator: std.mem.Allocator, amnt: u32) !std.MultiArrayList(particle) {
     var particles = std.MultiArrayList(particle){};
@@ -13,38 +20,46 @@ pub fn initParticles(allocator: std.mem.Allocator, amnt: u32) !std.MultiArrayLis
 }
 
 /// Applies forces from the ruleset to each particle
-pub fn updateVelocities(particles: std.MultiArrayList(particle), rules: [cfg.colorAmnt][cfg.colorAmnt]f32) void {
+pub fn updateVelocities(
+    particles: *std.MultiArrayList(particle),
+    threadidx: u64,
+) void {
+    const rules = cfg.rules;
     const colorList = particles.items(.colorId);
     var xvel = particles.items(.xvel);
     var yvel = particles.items(.yvel);
-    for (particles.items(.x), particles.items(.y), 0..) |x, y, i| {
+    var i: usize = threadidx;
+    while (i <= particles.len) : (i += cfg.numThreads) {
+        const p = particles.get(i);
         var forceX: f32 = 0.0;
         var forceY: f32 = 0.0;
 
-        for (particles.items(.x), particles.items(.y), 0..) |x2, y2, j| {
+        var j: usize = threadidx;
+        while (j <= particles.len) : (j += 1) {
+            const p2 = particles.get(j);
             if (i == j) continue;
-            var check2x = x - cfg.screenWidth;
-            var check2y = y - cfg.screenWidth;
-            if (x < cfg.screenWidth / 2) check2x = x + cfg.screenWidth;
-            if (y < cfg.screenHeight / 2) check2y = y + cfg.screenHeight;
+            var check2x = p.x - rl.getScreenWidth();
+            var check2y = p.y - rl.getScreenHeight();
+            if (p.x < @divExact(rl.getScreenWidth(), 2)) check2x = p.x + rl.getScreenWidth();
+            if (p.y < @divExact(rl.getScreenHeight(), 2)) check2y = p.y + rl.getScreenHeight();
 
-            var rx: f32 = @floatFromInt(x - x2);
-            var ry: f32 = @floatFromInt(y - y2);
-            const check2rx: f32 = @floatFromInt(check2x - x2);
-            const check2ry: f32 = @floatFromInt(check2y - y2);
+            var distance_x: f32 = @floatFromInt(p.x - p2.x);
+            var distance_y: f32 = @floatFromInt(p.y - p2.y);
+            const check2rx: f32 = @floatFromInt(check2x - p2.x);
+            const check2ry: f32 = @floatFromInt(check2y - p2.y);
 
-            if (@abs(rx) > @abs(check2rx)) rx = check2rx;
-            if (@abs(ry) > @abs(check2ry)) ry = check2ry;
+            if (@abs(distance_x) > @abs(check2rx)) distance_x = check2rx;
+            if (@abs(distance_y) > @abs(check2ry)) distance_y = check2ry;
 
-            if (rx > cfg.radius or ry > cfg.radius) continue;
+            if (distance_x > cfg.radius or distance_y > cfg.radius) continue;
 
-            var r = @sqrt(rx * rx + ry * ry);
+            var distance = @sqrt(distance_x * distance_x + distance_y * distance_y);
 
-            if (r == 0) r = 0.0001;
-            if (r > 0 and r < cfg.radius) {
-                const f = force(r, rules[colorList[i]][colorList[j]]);
-                forceX = forceX + rx / r * f;
-                forceY = forceY + ry / r * f;
+            if (distance == 0) distance = 0.0001;
+            if (distance > 0 and distance < cfg.radius) {
+                const f = -force(distance, rules[colorList[i]][colorList[j]]);
+                forceX += (distance_x / distance) * f;
+                forceY += (distance_y / distance) * f;
             }
         }
 
@@ -58,11 +73,11 @@ pub fn updateVelocities(particles: std.MultiArrayList(particle), rules: [cfg.col
 
 /// Applies the particles velocity and updates position
 pub fn updatePosition(particles: std.MultiArrayList(particle)) void {
-    for (particles.items(.y), particles.items(.yvel)) |*y, yvel|
-        y.* = @mod(@as(i32, @intFromFloat(@round((@as(f32, @floatFromInt(y.*)) + yvel)))), cfg.screenHeight);
+    for (particles.items(.y), particles.items(.yvel)) |*y, yvel| // (y + yvel) % screenHeight
+        y.* = @mod(@as(i32, @intFromFloat(@round((@as(f32, @floatFromInt(y.*)) + yvel)))), rl.getScreenHeight());
 
-    for (particles.items(.x), particles.items(.xvel)) |*x, xvel|
-        x.* = @mod(@as(i32, @intFromFloat(@round((@as(f32, @floatFromInt(x.*)) + xvel)))), cfg.screenWidth);
+    for (particles.items(.x), particles.items(.xvel)) |*x, xvel| // (x + xvel) % screenWidth
+        x.* = @mod(@as(i32, @intFromFloat(@round((@as(f32, @floatFromInt(x.*)) + xvel)))), rl.getScreenWidth());
 }
 
 /// Draw the particles onto the screen using raylib
@@ -71,19 +86,11 @@ pub fn draw(particles: std.MultiArrayList(particle)) void {
         rl.drawRectangle(x.*, y.*, 5, 5, cfg.colors[colorId]);
 }
 
-const particle = struct {
-    colorId: u32,
-    x: i32,
-    y: i32,
-    xvel: f32,
-    yvel: f32,
-};
-
 fn force(distance: f32, attraction: f32) f32 {
     const beta = cfg.minDistance / cfg.radius;
     const r: f32 = distance / cfg.radius;
     if (r < beta)
-        return -(r / beta - 1.0);
+        return ((beta - r) / (beta - 1.0));
     if (beta <= r and r < 1)
         return attraction * (1 - @abs(2.0 * r - 1.0 - beta) / (1.0 - beta));
     return 0;
@@ -92,8 +99,8 @@ fn force(distance: f32, attraction: f32) f32 {
 pub fn createParticle() particle {
     const seed = @as(u64, @truncate(@as(u128, @bitCast(std.time.nanoTimestamp()))));
     var prng = std.rand.DefaultPrng.init(seed);
-    const x = prng.random().uintLessThan(u32, cfg.screenWidth);
-    const y = prng.random().uintLessThan(u32, cfg.screenHeight);
+    const x = prng.random().uintLessThan(u32, @intCast(rl.getScreenWidth()));
+    const y = prng.random().uintLessThan(u32, @intCast(rl.getScreenHeight()));
     const color = prng.random().uintLessThan(u32, cfg.colorAmnt);
     return particle{
         .colorId = color,
@@ -105,3 +112,12 @@ pub fn createParticle() particle {
 }
 
 //TODO: Create tests
+test "Force values" {
+    const expect = std.testing.expect;
+    cfg.radius = 50;
+    cfg.minDistance = 20;
+    const belowMin = force(5.0, 0.5);
+    const aboveMin = force(25.0, 0.5);
+    try expect(aboveMin > 0);
+    try expect(belowMin < 0);
+}

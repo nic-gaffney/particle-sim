@@ -7,7 +7,7 @@
             .url = "https://github.com/Not-Nik/raylib-zig/archive/devel.tar.gz",
             .hash = "1220fc554f109a45a77ee5c58b4a847936dc0b24dcbed818b65a02de1b58500041dc",
         },
-        .rlimgui = .{ .path = "vendor/rlImGui-main" },
+        .rlimgui = .{ .path = "vendor/rlImGui" },
         .zgui = .{ .path = "vendor/zgui" },
     },
 }

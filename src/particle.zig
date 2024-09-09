@@ -29,13 +29,14 @@ pub fn updateVelocities(
     var xvel = particles.items(.xvel);
     var yvel = particles.items(.yvel);
     var i: usize = threadidx;
-    while (i <= particles.len) : (i += cfg.numThreads) {
+    while (i < particles.len) : (i += cfg.numThreads) {
         const p = particles.get(i);
+        const radius = cfg.radius[p.colorId];
         var forceX: f32 = 0.0;
         var forceY: f32 = 0.0;
 
         var j: usize = threadidx;
-        while (j <= particles.len) : (j += 1) {
+        while (j < particles.len) : (j += 1) {
             const p2 = particles.get(j);
             if (i == j) continue;
             var check2x = p.x - rl.getScreenWidth();
@@ -51,33 +52,41 @@ pub fn updateVelocities(
             if (@abs(distance_x) > @abs(check2rx)) distance_x = check2rx;
             if (@abs(distance_y) > @abs(check2ry)) distance_y = check2ry;
 
-            if (distance_x > cfg.radius or distance_y > cfg.radius) continue;
+            if (distance_x > radius or distance_y > radius) continue;
 
             var distance = @sqrt(distance_x * distance_x + distance_y * distance_y);
 
             if (distance == 0) distance = 0.0001;
-            if (distance > 0 and distance < cfg.radius) {
-                const f = -force(distance, rules[colorList[i]][colorList[j]]);
+            if (distance > 0 and distance < radius) {
+                const f = -force(distance, radius, rules[colorList[i]][colorList[j]]);
                 forceX += (distance_x / distance) * f;
                 forceY += (distance_y / distance) * f;
             }
         }
 
-        forceX = forceX * cfg.minDistance / cfg.radius;
-        forceY = forceY * cfg.minDistance / cfg.radius;
+        forceX = forceX * cfg.minDistance / radius;
+        forceY = forceY * cfg.minDistance / radius;
 
-        xvel[i] = xvel[i] * 0.95 + forceX;
-        yvel[i] = yvel[i] * 0.95 + forceY;
+        xvel[i] = xvel[i] * cfg.friction + forceX;
+        yvel[i] = yvel[i] * cfg.friction + forceY;
     }
 }
 
 /// Applies the particles velocity and updates position
 pub fn updatePosition(particles: std.MultiArrayList(particle)) void {
-    for (particles.items(.y), particles.items(.yvel)) |*y, yvel| // (y + yvel) % screenHeight
-        y.* = @mod(@as(i32, @intFromFloat(@round((@as(f32, @floatFromInt(y.*)) + yvel)))), rl.getScreenHeight());
+    for (
+        particles.items(.colorId),
+        particles.items(.y),
+        particles.items(.yvel),
+    ) |col, *y, yvel| // (y + yvel) % screenHeight
+        y.* = @intFromFloat(@round(@as(f32, @floatFromInt(@mod(@as(i32, @intFromFloat(@round((@as(f32, @floatFromInt(y.*)) + (@as(f32, @floatFromInt(cfg.speed[col])) / 1000.0) * yvel)))), rl.getScreenHeight())))));
 
-    for (particles.items(.x), particles.items(.xvel)) |*x, xvel| // (x + xvel) % screenWidth
-        x.* = @mod(@as(i32, @intFromFloat(@round((@as(f32, @floatFromInt(x.*)) + xvel)))), rl.getScreenWidth());
+    for (
+        particles.items(.colorId),
+        particles.items(.x),
+        particles.items(.xvel),
+    ) |col, *x, xvel| // (y + yvel) % screenHeight
+        x.* = @intFromFloat(@round(@as(f32, @floatFromInt(@mod(@as(i32, @intFromFloat(@round((@as(f32, @floatFromInt(x.*)) + (@as(f32, @floatFromInt(cfg.speed[col])) / 1000.0) * xvel)))), rl.getScreenWidth())))));
 }
 
 /// Draw the particles onto the screen using raylib
@@ -86,9 +95,9 @@ pub fn draw(particles: std.MultiArrayList(particle)) void {
         rl.drawRectangle(x.*, y.*, 5, 5, cfg.colors[colorId]);
 }
 
-fn force(distance: f32, attraction: f32) f32 {
-    const beta = cfg.minDistance / cfg.radius;
-    const r: f32 = distance / cfg.radius;
+fn force(distance: f32, radius: f32, attraction: f32) f32 {
+    const beta = cfg.minDistance / radius;
+    const r: f32 = distance / radius;
     if (r < beta)
         return ((beta - r) / (beta - 1.0));
     if (beta <= r and r < 1)
@@ -114,10 +123,10 @@ pub fn createParticle() particle {
 //TODO: Create tests
 test "Force values" {
     const expect = std.testing.expect;
-    cfg.radius = 50;
+    const radius = 50;
     cfg.minDistance = 20;
-    const belowMin = force(5.0, 0.5);
-    const aboveMin = force(25.0, 0.5);
+    const belowMin = force(5.0, radius, 0.5);
+    const aboveMin = force(25.0, radius, 0.5);
     try expect(aboveMin > 0);
     try expect(belowMin < 0);
 }

@@ -20,12 +20,25 @@ pub fn update(alloc: std.mem.Allocator, buf: [:0]u8) !void {
     if (z.collapsingHeader("General Settings", .{ .default_open = true })) {
         if (z.button("Reset", .{})) {
             cfg.particleCount = cfg.initialParticles;
-            cfg.radius = 100.0;
+            //            cfg.radius = 100.0;
             cfg.minDistance = 20.0;
         }
         _ = z.sliderInt("Particles", .{ .v = &cfg.particleCount, .min = 1, .max = cfg.particleMax });
-        _ = z.sliderFloat("Radius", .{ .v = &cfg.radius, .min = cfg.minDistance, .max = 500 });
-        _ = z.sliderFloat("Minimum Distance", .{ .v = &cfg.minDistance, .min = 1.0, .max = cfg.radius });
+        _ = z.sliderFloat("Friction", .{ .v = &cfg.friction, .min = 0, .max = 1 });
+        // _ = z.sliderFloat("Radius", .{ .v = &cfg.radius, .min = cfg.minDistance, .max = 500 });
+        _ = z.sliderFloat("Minimum Distance", .{ .v = &cfg.minDistance, .min = 1.0, .max = 500 });
+    }
+    if (z.collapsingHeader("Radius", .{ .default_open = true })) {
+        for (&cfg.radius, 0..) |*r, i| {
+            const str = try std.fmt.allocPrintZ(alloc, "{s} Radius", .{rul.colorToString(i)});
+            _ = z.sliderFloat(str, .{ .v = r, .min = cfg.minDistance, .max = 500 });
+        }
+    }
+    if (z.collapsingHeader("Speed", .{ .default_open = true })) {
+        for (&cfg.speed, 0..) |*s, i| {
+            const str = try std.fmt.allocPrintZ(alloc, "{s} Speed", .{rul.colorToString(i)});
+            _ = z.sliderInt(str, .{ .v = s, .min = 1, .max = 1000 });
+        }
     }
     if (z.collapsingHeader("Ruleset", .{ .default_open = true })) {
         _ = z.beginTable("Rules", .{

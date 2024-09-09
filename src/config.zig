@@ -7,11 +7,14 @@ pub const screenHeight = 1080;
 pub const particleMax = 10000;
 pub const initialParticles = 2000;
 pub const colorAmnt = colors.len;
-pub const numThreads = 12;
+pub const numThreads = 16;
 
 pub var particleCount: i32 = initialParticles;
-pub var radius: f32 = 100.0;
 pub var minDistance: f32 = 20.0;
+pub var friction: f32 = 0.95;
+pub var radius: [colorAmnt]f32 = undefined;
+pub var speed: [colorAmnt]i32 = undefined;
+pub var rules: [colorAmnt][colorAmnt]f32 = undefined;
 pub var colors = [_]rl.Color{
     rl.Color.red,
     rl.Color.green,
@@ -23,7 +26,7 @@ pub var colors = [_]rl.Color{
     rl.Color.gray,
 };
 
-pub fn customColors() [8]rl.Color {
+pub fn customColors() [colorAmnt]rl.Color {
     return .{
         rl.getColor(0xF38BA8FF),
         rl.getColor(0xA6E3A1FF),
@@ -35,5 +38,3 @@ pub fn customColors() [8]rl.Color {
         rl.getColor(0xCBA6F7FF),
     };
 }
-
-pub var rules: [colorAmnt][colorAmnt]f32 = undefined;

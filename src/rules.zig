@@ -13,6 +13,8 @@ pub fn ruleMatrix() [cfg.colorAmnt][cfg.colorAmnt]f32 {
             if (isNeg == 1) val = 0 - val;
             rules[i][j] = val;
         }
+        cfg.radius[i] = prng.random().float(f32) * 500;
+        cfg.speed[i] = prng.random().intRangeAtMost(i32, 1, 1000);
     }
     return rules;
 }
@@ -46,6 +48,28 @@ pub fn loadRules(allocator: std.mem.Allocator, absolutePath: [:0]u8) !void {
         }
         try reader.skipBytes(1, .{});
     }
+    for (&cfg.speed) |*s| {
+        const buf = try reader.readUntilDelimiterAlloc(allocator, ',', 16);
+        defer allocator.free(buf);
+        s.* = try std.fmt.parseInt(i32, buf, 10);
+    }
+    try reader.skipBytes(1, .{});
+    for (&cfg.radius) |*r| {
+        const buf = try reader.readUntilDelimiterAlloc(allocator, ',', 16);
+        defer allocator.free(buf);
+        r.* = try std.fmt.parseFloat(f32, buf);
+    }
+    try reader.skipBytes(1, .{});
+    {
+        const buf = try reader.readUntilDelimiterAlloc(allocator, ',', 16);
+        defer allocator.free(buf);
+        cfg.minDistance = try std.fmt.parseFloat(f32, buf);
+    }
+    {
+        const buf = try reader.readUntilDelimiterAlloc(allocator, ',', 16);
+        defer allocator.free(buf);
+        cfg.friction = try std.fmt.parseFloat(f32, buf);
+    }
 }
 
 /// Save rules to a csv
@@ -59,6 +83,16 @@ pub fn saveRules(absolutePath: [:0]u8) !void {
         }
         _ = try writer.write("\n");
     }
+    for (cfg.speed) |s| {
+        try writer.print("{d},", .{s});
+    }
+    _ = try writer.write("\n");
+    for (cfg.radius) |r| {
+        try writer.print("{d:.3},", .{r});
+    }
+    _ = try writer.write("\n");
+    try writer.print("{d:.3},", .{cfg.minDistance});
+    try writer.print("{d:.3},", .{cfg.friction});
 }
 
 /// Convert the color index to a string

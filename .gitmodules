@@ -1,3 +1,3 @@
-[submodule "vendor/rlImGui"]
-	path = vendor/rlImGui
-	url = git@github.com:nic-gaffney/rlImGui.git
+[submodule "vendor/zgui"]
+	path = vendor/zgui
+	url = git@github.com-Nic:zig-gamedev/zgui.git

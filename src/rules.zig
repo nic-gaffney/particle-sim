@@ -2,7 +2,7 @@ const cfg = @import("config.zig");
 const std = @import("std");
 
 /// Generate the set of rules the particles will abide by
-pub fn ruleMatrix() [cfg.colorAmnt][cfg.colorAmnt]f32 {
+pub fn ruleMatrix(radius: bool, speed: bool) [cfg.colorAmnt][cfg.colorAmnt]f32 {
     const seed = @as(u64, @truncate(@as(u128, @bitCast(std.time.nanoTimestamp()))));
     var prng = std.rand.DefaultPrng.init(seed);
     var rules: [cfg.colorAmnt][cfg.colorAmnt]f32 = undefined;
@@ -13,8 +13,10 @@ pub fn ruleMatrix() [cfg.colorAmnt][cfg.colorAmnt]f32 {
             if (isNeg == 1) val = 0 - val;
             rules[i][j] = val;
         }
-        cfg.radius[i] = prng.random().float(f32) * 500;
-        cfg.speed[i] = prng.random().intRangeAtMost(i32, 1, 1000);
+        if (radius)
+            cfg.radius[i] = @intCast(@abs(prng.random().intRangeAtMost(i32, cfg.minDistance+1, 100)));
+        if (speed)
+            cfg.speed[i] = prng.random().intRangeAtMost(i32, 1, 1000);
     }
     return rules;
 }
@@ -57,13 +59,13 @@ pub fn loadRules(allocator: std.mem.Allocator, absolutePath: [:0]u8) !void {
     for (&cfg.radius) |*r| {
         const buf = try reader.readUntilDelimiterAlloc(allocator, ',', 16);
         defer allocator.free(buf);
-        r.* = try std.fmt.parseFloat(f32, buf);
+        r.* = try std.fmt.parseInt(i32, buf, 10);
     }
     try reader.skipBytes(1, .{});
     {
         const buf = try reader.readUntilDelimiterAlloc(allocator, ',', 16);
         defer allocator.free(buf);
-        cfg.minDistance = try std.fmt.parseFloat(f32, buf);
+        cfg.minDistance = try std.fmt.parseInt(i32, buf, 10);
     }
     {
         const buf = try reader.readUntilDelimiterAlloc(allocator, ',', 16);
@@ -96,7 +98,21 @@ pub fn saveRules(absolutePath: [:0]u8) !void {
 }
 
 /// Convert the color index to a string
-pub fn colorToString(c: usize) []const u8 {
+pub inline fn colorToString(c: usize) []const u8 {
+    return switch (c) {
+        0 => "Red",
+        1 => "Green",
+        2 => "Blue",
+        3 => "Yellow",
+        4 => "Magenta",
+        5 => "Brown",
+        6 => "Orange",
+        7 => "Gray",
+        else => " ",
+    };
+}
+
+pub inline fn colorToStringZ(c: usize) [:0]const u8 {
     return switch (c) {
         0 => "Red",
         1 => "Green",

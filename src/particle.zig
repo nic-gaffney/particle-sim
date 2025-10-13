@@ -1,102 +1,83 @@
 const cfg = @import("config.zig");
 const std = @import("std");
 const rl = @import("raylib");
+const quad = @import("quad.zig");
 
 pub const particle = struct {
     colorId: u32,
-    x: i32,
-    y: i32,
+    pos: quad.Point,
     xvel: f32,
     yvel: f32,
 };
 /// Initialize a MultiArrayList of size amnt with particles created by createParticle
-pub fn initParticles(allocator: std.mem.Allocator, amnt: u32) !std.MultiArrayList(particle) {
-    var particles = std.MultiArrayList(particle){};
-    try particles.setCapacity(allocator, cfg.particleMax);
+pub fn initParticles(allocator: std.mem.Allocator, amnt: u32) !std.ArrayList(particle) {
+    var particles = std.ArrayList(particle).init(allocator);
+    try particles.ensureTotalCapacity(cfg.particleMax);
     for (0..amnt) |_|
-        try particles.append(allocator, createParticle());
+        try particles.append(createParticle());
 
     return particles;
 }
 
 /// Applies forces from the ruleset to each particle
 pub fn updateVelocities(
-    particles: *std.MultiArrayList(particle),
+    particles: std.ArrayList(particle),
+    qtree: quad.Quad(particle, cfg.quadSplitLimit),
     threadidx: u64,
-) void {
+) !void {
     const rules = cfg.rules;
-    const colorList = particles.items(.colorId);
-    var xvel = particles.items(.xvel);
-    var yvel = particles.items(.yvel);
-    var i: usize = threadidx;
-    while (i < particles.len) : (i += cfg.numThreads) {
-        const p = particles.get(i);
+    var particlesInRange = std.ArrayList(particle).init(qtree.allocator);
+    defer particlesInRange.deinit();
+    var i = threadidx;
+    while (i < particles.items.len) : (i += cfg.numThreads) {
+        var p: *particle = &(particles.items[i]);
+        defer particlesInRange.clearRetainingCapacity();
         const radius = cfg.radius[p.colorId];
+        try qtree.radiusSearchWrapping(p.pos, @intCast(radius), &particlesInRange, rl.getScreenWidth(), rl.getScreenHeight());
         var forceX: f32 = 0.0;
         var forceY: f32 = 0.0;
-
-        var j: usize = threadidx;
-        while (j < particles.len) : (j += 1) {
-            const p2 = particles.get(j);
-            if (i == j) continue;
-            var check2x = p.x - rl.getScreenWidth();
-            var check2y = p.y - rl.getScreenHeight();
-            if (p.x < @divExact(rl.getScreenWidth(), 2)) check2x = p.x + rl.getScreenWidth();
-            if (p.y < @divExact(rl.getScreenHeight(), 2)) check2y = p.y + rl.getScreenHeight();
-
-            var distance_x: f32 = @floatFromInt(p.x - p2.x);
-            var distance_y: f32 = @floatFromInt(p.y - p2.y);
-            const check2rx: f32 = @floatFromInt(check2x - p2.x);
-            const check2ry: f32 = @floatFromInt(check2y - p2.y);
-
-            if (@abs(distance_x) > @abs(check2rx)) distance_x = check2rx;
-            if (@abs(distance_y) > @abs(check2ry)) distance_y = check2ry;
-
-            if (distance_x > radius or distance_y > radius) continue;
-
+        const floatRadius = @as(f32, @floatFromInt(radius));
+        const floattMinDistance = @as(f32, @floatFromInt(cfg.minDistance));
+        for (particlesInRange.items) |p2| {
+            if (p.pos.x == p2.pos.x and p.pos.y == p2.pos.y) continue;
+            const distance_x: f32 = @floatFromInt(p.pos.x - p2.pos.x);
+            const distance_y: f32 = @floatFromInt(p.pos.y - p2.pos.y);
             var distance = @sqrt(distance_x * distance_x + distance_y * distance_y);
-
-            if (distance == 0) distance = 0.0001;
-            if (distance > 0 and distance < radius) {
-                const f = -force(distance, radius, rules[colorList[i]][colorList[j]]);
-                forceX += (distance_x / distance) * f;
-                forceY += (distance_y / distance) * f;
-            }
+            if (distance == 0) distance = 0.01;
+            const f = -force(distance, floatRadius, rules[p.colorId][p2.colorId]);
+            forceX += (distance_x / distance) * f;
+            forceY += (distance_y / distance) * f;
         }
-
-        forceX = forceX * cfg.minDistance / radius;
-        forceY = forceY * cfg.minDistance / radius;
-
-        xvel[i] = xvel[i] * cfg.friction + forceX;
-        yvel[i] = yvel[i] * cfg.friction + forceY;
+        forceX = forceX * floattMinDistance / floatRadius;
+        // forceX = std.math.clamp(forceX, -10.0, 10.0);
+        forceY = forceY * floattMinDistance / floatRadius;
+        // forceY = std.math.clamp(forceY, -10.0, 10.0);
+        p.xvel *= cfg.friction ;
+        p.xvel += forceX;
+        p.yvel *= cfg.friction;
+        p.yvel += forceY;
     }
 }
 
 /// Applies the particles velocity and updates position
-pub fn updatePosition(particles: std.MultiArrayList(particle)) void {
-    for (
-        particles.items(.colorId),
-        particles.items(.y),
-        particles.items(.yvel),
-    ) |col, *y, yvel| // (y + yvel) % screenHeight
-        y.* = @intFromFloat(@round(@as(f32, @floatFromInt(@mod(@as(i32, @intFromFloat(@round((@as(f32, @floatFromInt(y.*)) + (@as(f32, @floatFromInt(cfg.speed[col])) / 1000.0) * yvel)))), rl.getScreenHeight())))));
-
-    for (
-        particles.items(.colorId),
-        particles.items(.x),
-        particles.items(.xvel),
-    ) |col, *x, xvel| // (y + yvel) % screenHeight
-        x.* = @intFromFloat(@round(@as(f32, @floatFromInt(@mod(@as(i32, @intFromFloat(@round((@as(f32, @floatFromInt(x.*)) + (@as(f32, @floatFromInt(cfg.speed[col])) / 1000.0) * xvel)))), rl.getScreenWidth())))));
+pub fn updatePosition(particles: *std.ArrayList(particle)) void {
+    for (particles.items) |*p| {
+        const maxVel: f32 = 4096.0;
+        const posYplusVel: f32 = @as(f32, @floatFromInt(p.pos.y)) + std.math.clamp(p.yvel, -maxVel, maxVel);
+        const posXplusVel: f32 = @as(f32, @floatFromInt(p.pos.x)) + std.math.clamp(p.xvel, -maxVel, maxVel);
+        p.pos.y = @mod(@as(i32, @intFromFloat(posYplusVel)),  rl.getScreenHeight());
+        p.pos.x = @mod(@as(i32, @intFromFloat(posXplusVel)),  rl.getScreenWidth());
+    }
 }
 
 /// Draw the particles onto the screen using raylib
-pub fn draw(particles: std.MultiArrayList(particle)) void {
-    for (particles.items(.y), particles.items(.x), particles.items(.colorId)) |*y, *x, colorId|
-        rl.drawRectangle(x.*, y.*, 5, 5, cfg.colors[colorId]);
+pub fn draw(particles: std.ArrayList(particle)) void {
+    for (particles.items) |p|
+        rl.drawRectangle(p.pos.x, p.pos.y, 5, 5, cfg.colors[p.colorId]);
 }
 
 fn force(distance: f32, radius: f32, attraction: f32) f32 {
-    const beta = cfg.minDistance / radius;
+    const beta = @as(f32, @floatFromInt(cfg.minDistance)) / radius;
     const r: f32 = distance / radius;
     if (r < beta)
         return ((beta - r) / (beta - 1.0));
@@ -113,8 +94,10 @@ pub fn createParticle() particle {
     const color = prng.random().uintLessThan(u32, cfg.colorAmnt);
     return particle{
         .colorId = color,
-        .x = @intCast(x),
-        .y = @intCast(y),
+        .pos = .{
+            .x = @intCast(x),
+            .y = @intCast(y),
+        },
         .xvel = 0,
         .yvel = 0,
     };

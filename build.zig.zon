@@ -1,13 +1,17 @@
 .{
-    .name = "particle-sim",
-    .version = "0.2.1",
+    .name = .particle_sim,
+    .fingerprint = 0x88cd171d5a7354dc,
+    .version = "0.3.0",
     .paths = .{ "src", "vendor" },
     .dependencies = .{
-        .@"raylib-zig" = .{
-            .url = "https://github.com/Not-Nik/raylib-zig/archive/devel.tar.gz",
-            .hash = "1220fc554f109a45a77ee5c58b4a847936dc0b24dcbed818b65a02de1b58500041dc",
-        },
         .rlimgui = .{ .path = "vendor/rlImGui" },
-        .zgui = .{ .path = "vendor/zgui" },
+        .raylib_zig = .{
+            .url = "git+https://github.com/raylib-zig/raylib-zig?ref=devel#163b1ef2e993fe7cc7c76bb3213d98612f4b7676",
+            .hash = "raylib_zig-5.6.0-dev-KE8REGNJBQDSjjyCmf4ATVQtk_OaBpY0B7kBxwSOPEGZ",
+        },
+        .zgui = .{
+            .url = "git+https://github.com/nic-gaffney/zgui#d90f353a733ab34f1c62e42c01ee87993075fa7e",
+            .hash = "zgui-0.6.0-dev--L6sZBrubQAfBA0cnGPYocwjKh_ass7FrUkTadgicanG",
+        },
     },
 }

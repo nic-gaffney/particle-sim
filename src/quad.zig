@@ -16,17 +16,17 @@ pub fn Node(T: type) type {
 pub fn Quad(T: type, comptime splitLimit: usize) type {
     return struct {
         allocator: std.mem.Allocator,
-        nodes: ?std.BoundedArray(Node(T), splitLimit),
+        nodes: ?std.ArrayList(Node(T)),
         topLeft: Point,
         bottomRight: Point,
         children: [4]?*Quad(T, splitLimit),
 
         const Self = @This();
 
-        pub fn init(allocator: std.mem.Allocator, tl: Point, br: Point) Quad(T, splitLimit) {
+        pub fn init(allocator: std.mem.Allocator, tl: Point, br: Point) !Self {
             return Quad(T, splitLimit){
                 .allocator = allocator,
-                .nodes = std.BoundedArray(Node(T), splitLimit).init(0) catch unreachable,
+                .nodes = try std.ArrayList(Node(T)).initCapacity(allocator, splitLimit),
                 .topLeft = tl,
                 .bottomRight = br,
                 .children = [4]?*Quad(T, splitLimit){ null, null, null, null },
@@ -89,8 +89,8 @@ pub fn Quad(T: type, comptime splitLimit: usize) type {
                 3 => self.bottomRight,
                 else => unreachable,
             };
-            self.children[quadrant] = try self.allocator.create(Quad(T, splitLimit));
-            self.children[quadrant].?.* = Quad(T, splitLimit).init(self.allocator, tl, br);
+            self.children[quadrant] = try self.allocator.create(Self);
+            self.children[quadrant].?.* = try Self.init(self.allocator, tl, br);
         }
 
         fn split(self: *Quad(T, splitLimit)) !void {
@@ -98,7 +98,7 @@ pub fn Quad(T: type, comptime splitLimit: usize) type {
             for (0..4) |i|
                 if (self.children[i] == null)
                     try self.createChild(i);
-            const nodesToRedistribute = self.nodes.?.slice();
+            const nodesToRedistribute = self.nodes.?.items;
             for (nodesToRedistribute) |node| {
                 const quadrant = self.getQuadrant(node.pos);
                 try self.children[quadrant].?.insert(node);
@@ -116,7 +116,7 @@ pub fn Quad(T: type, comptime splitLimit: usize) type {
                 return;
             }
             if (self.nodes) |*nodes| {
-                nodes.append(node) catch {
+                nodes.appendBounded(node) catch {
                     try self.split();
                     const quadrant = self.getQuadrant(node.pos);
                     try self.children[quadrant].?.insert(node);
@@ -128,7 +128,7 @@ pub fn Quad(T: type, comptime splitLimit: usize) type {
             if (!self.inBoundry(p)) return null;
 
             if (self.nodes) |nodes| {
-                for (nodes.slice()) |node|
+                for (nodes.items) |node|
                     if (node.pos.x == p.x and node.pos.y == p.y)
                         return node;
                 return null;
@@ -144,9 +144,9 @@ pub fn Quad(T: type, comptime splitLimit: usize) type {
             if (!self.intersectsCircle(center, radius)) return;
 
             if (self.nodes) |nodes| {
-                for (nodes.slice()) |node|
+                for (nodes.items) |node|
                     if (locationInRadius(center, node.pos, radius)) {
-                        try results.append(node.data);
+                        try results.appendBounded(node.data);
                     };
                 return;
             }
@@ -245,7 +245,9 @@ pub fn Quad(T: type, comptime splitLimit: usize) type {
             return self.inRadius(center, radius) or self.inBoundry(center);
         }
 
-        pub fn deinit(self: *Quad(T, splitLimit)) void {
+        pub fn deinit(self: *Self) void {
+            if (self.nodes) |*n|
+                n.deinit(self.allocator);
             for (self.children) |child| {
                 if (child) |c| {
                     c.deinit();

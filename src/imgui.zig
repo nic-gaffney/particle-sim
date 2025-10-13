@@ -30,13 +30,13 @@ pub fn update(alloc: std.mem.Allocator, buf: [:0]u8) !void {
     }
     if (z.collapsingHeader("Radius", .{ .default_open = true })) {
         for (&cfg.radius, 0..) |*r, i| {
-            const str  = rul.colorToStringZ(i);
+            const str  = rul.colorToStringZ(i, "", " Radius");
             _ = z.sliderInt(str, .{ .v = r, .min = cfg.minDistance, .max = 500 });
         }
     }
     if (z.collapsingHeader("Speed", .{ .default_open = true })) {
         for (&cfg.speed, 0..) |*s, i| {
-            const str = rul.colorToStringZ(i);
+            const str = rul.colorToStringZ(i, "", " Speed");
             _ = z.sliderInt(str, .{ .v = s, .min = 1, .max = 1000 });
         }
     }

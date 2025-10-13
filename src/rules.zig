@@ -4,7 +4,7 @@ const std = @import("std");
 /// Generate the set of rules the particles will abide by
 pub fn ruleMatrix(radius: bool, speed: bool) [cfg.colorAmnt][cfg.colorAmnt]f32 {
     const seed = @as(u64, @truncate(@as(u128, @bitCast(std.time.nanoTimestamp()))));
-    var prng = std.rand.DefaultPrng.init(seed);
+    var prng = std.Random.DefaultPrng.init(seed);
     var rules: [cfg.colorAmnt][cfg.colorAmnt]f32 = undefined;
     for (0..cfg.colorAmnt) |i| {
         for (0..cfg.colorAmnt) |j| {
@@ -39,36 +39,37 @@ pub fn printRules(rules: [cfg.colorAmnt][cfg.colorAmnt]f32) void {
 
 /// Loads rules from a csv
 pub fn loadRules(allocator: std.mem.Allocator, absolutePath: [:0]u8) !void {
+    var buffer: [256]u8 = undefined;
     const file = try std.fs.openFileAbsoluteZ(absolutePath, .{ .mode = .read_only });
     defer file.close();
-    var reader = file.reader();
+    var reader = file.reader(&buffer).interface;
     for (&cfg.rules) |*row| {
         for (row) |*col| {
-            const buf = try reader.readUntilDelimiterAlloc(allocator, ',', 16);
+            const buf = try reader.takeDelimiterExclusive(',');
             defer allocator.free(buf);
             col.* = try std.fmt.parseFloat(f32, buf);
         }
-        try reader.skipBytes(1, .{});
+        reader.toss(1);
     }
     for (&cfg.speed) |*s| {
-        const buf = try reader.readUntilDelimiterAlloc(allocator, ',', 16);
+        const buf = try reader.takeDelimiterExclusive(',');
         defer allocator.free(buf);
         s.* = try std.fmt.parseInt(i32, buf, 10);
     }
-    try reader.skipBytes(1, .{});
+    reader.toss(1);
     for (&cfg.radius) |*r| {
-        const buf = try reader.readUntilDelimiterAlloc(allocator, ',', 16);
+        const buf = try reader.takeDelimiterExclusive(',');
         defer allocator.free(buf);
         r.* = try std.fmt.parseInt(i32, buf, 10);
     }
-    try reader.skipBytes(1, .{});
+    reader.toss(1);
     {
-        const buf = try reader.readUntilDelimiterAlloc(allocator, ',', 16);
+        const buf = try reader.takeDelimiterExclusive(',');
         defer allocator.free(buf);
         cfg.minDistance = try std.fmt.parseInt(i32, buf, 10);
     }
     {
-        const buf = try reader.readUntilDelimiterAlloc(allocator, ',', 16);
+        const buf = try reader.takeDelimiterExclusive(',');
         defer allocator.free(buf);
         cfg.friction = try std.fmt.parseFloat(f32, buf);
     }
@@ -76,9 +77,10 @@ pub fn loadRules(allocator: std.mem.Allocator, absolutePath: [:0]u8) !void {
 
 /// Save rules to a csv
 pub fn saveRules(absolutePath: [:0]u8) !void {
+    var buffer: [256]u8 = undefined;
     const file = try std.fs.createFileAbsoluteZ(absolutePath, .{ .read = true });
     defer file.close();
-    var writer = file.writer();
+    var writer = file.writer(&buffer).interface;
     for (cfg.rules) |row| {
         for (row) |col| {
             try writer.print("{d:.3},", .{col});
@@ -112,16 +114,16 @@ pub inline fn colorToString(c: usize) []const u8 {
     };
 }
 
-pub inline fn colorToStringZ(c: usize) [:0]const u8 {
+pub inline fn colorToStringZ(c: usize, comptime prepend: []const u8, comptime append: []const u8) [:0]const u8 {
     return switch (c) {
-        0 => "Red",
-        1 => "Green",
-        2 => "Blue",
-        3 => "Yellow",
-        4 => "Magenta",
-        5 => "Brown",
-        6 => "Orange",
-        7 => "Gray",
+        0 => prepend ++ "Red" ++ append,
+        1 => prepend ++ "Green" ++ append,
+        2 => prepend ++ "Blue" ++ append,
+        3 => prepend ++ "Yellow" ++ append,
+        4 => prepend ++ "Magenta" ++ append,
+        5 => prepend ++ "Brown" ++ append,
+        6 => prepend ++ "Orange" ++ append,
+        7 => prepend ++ "Gray" ++ append,
         else => " ",
     };
 }

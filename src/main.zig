@@ -17,18 +17,18 @@ pub fn main() !void {
     cfg.rules = rules.ruleMatrix(true, true);
     rules.printRules(cfg.rules);
 
-    var gpa = std.heap.GeneralPurposeAllocator(.{
-        // .safety = true,
-        // .thread_safe = true,
-        // .verbose_log = false,
-    }){};
-    defer {
-        const leaked = gpa.deinit();
-        if (leaked == .leak) {
-            std.debug.print("LEAKY PROGRAM\n", .{});
-        }
-    }
-    const allocator = gpa.allocator();
+    const allocator = std.heap.smp_allocator;
+    // defer {
+    //     const leaked = smp.deinit();
+    //     if (leaked == .leak) {
+    //         std.debug.print("LEAKY PROGRAM\n", .{});
+    //     }
+    // }
+    // gpa.setRequestedMemoryLimit(8000000);
+    // const allocator = smp.allocator();
+    // var buffer: [80000000]u8 = undefined;
+    // var fbuffer = std.heap.FixedBufferAllocator.init(&buffer);
+    // const allocator = fbuffer.threadSafeAllocator();
 
     rl.initWindow(cfg.screenWidth, cfg.screenHeight, "Particle Simulator");
     defer rl.closeWindow();
@@ -49,18 +49,20 @@ pub fn main() !void {
     var particles = try part.initParticles(allocator, cfg.initialParticles);
     defer particles.deinit();
     var quadTree: quad.Quad(part.particle, cfg.quadSplitLimit) = undefined;
+    // defer quadTree.deinit();
 
     const buf = try allocator.allocSentinel(u8, 128, 0);
     std.mem.copyForwards(u8, buf, "Absolute File Path" ++ .{0});
     defer allocator.free(buf);
     const pool = try allocator.alloc(std.Thread, cfg.numThreads);
+    var particleArrs: [cfg.numThreads]std.ArrayList(part.particle) = undefined;
+    for (0..cfg.numThreads) |i|
+        particleArrs[i] = try std.ArrayList(part.particle).initCapacity(allocator, comptime @divFloor(cfg.particleMax, cfg.numThreads) + cfg.numThreads);
     defer allocator.free(pool);
-    var frameCounter: u32 = 0;
 
     while (!rl.windowShouldClose()) {
         if (particles.items.len < cfg.particleCount) {
             for (0..@intCast(cfg.particleCount - @as(i32, @intCast(particles.items.len)))) |_| {
-                //std.debug.print("without this print statement it breaks on arm idk why {d}\n", .{cfg.particleCount});
                 _ = cfg.particleCount;
                 try particles.append(part.createParticle());
             }
@@ -70,22 +72,28 @@ pub fn main() !void {
             particles.shrinkRetainingCapacity(@intCast(cfg.particleCount));
         }
 
-        quadTree = quad.Quad(part.particle, cfg.quadSplitLimit).init(allocator,
-            .{ .x = 0, .y = 0 }, .{ .x = rl.getScreenWidth(), .y = rl.getScreenHeight()});
-        defer quadTree.deinit();
+
+        quadTree = try quad.Quad(part.particle, cfg.quadSplitLimit).init(allocator,
+                .{ .x = 0, .y = 0 },
+                .{ .x = rl.getScreenWidth(), .y = rl.getScreenHeight()});
+        // defer quadTree.deinit();
         for (particles.items) |p| try quadTree.insert(.{ .pos = p.pos, .data = p});
 
         rl.beginDrawing();
         defer rl.endDrawing();
-        if (rl.isKeyPressed(rl.KeyboardKey.key_q)) break;
+        if (rl.isKeyPressed(rl.KeyboardKey.q)) {
+            quadTree.deinit();
+            break;
+        }
         rl.clearBackground(rl.getColor(0x1E1E2EFF));
 
-        for (pool, 0..) |*thread, i|
-            thread.* = try std.Thread.spawn(.{}, part.updateVelocities, .{ particles, quadTree, i });
+        for (pool, 0..) |*thread, i| {
+            thread.* = try std.Thread.spawn(.{}, part.updateVelocities, .{ particles, quadTree, i, &particleArrs[i] });
+        }
 
         for (pool) |thread|
             thread.join();
-        frameCounter += 1;
+        quadTree.deinit();
 
 
         part.updatePosition(&particles);

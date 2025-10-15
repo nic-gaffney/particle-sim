@@ -97,6 +97,7 @@ pub fn saveRules(absolutePath: [:0]u8) !void {
     _ = try writer.write("\n");
     try writer.print("{d:.3},", .{cfg.minDistance});
     try writer.print("{d:.3},", .{cfg.friction});
+    try writer.flush();
 }
 
 /// Convert the color index to a string

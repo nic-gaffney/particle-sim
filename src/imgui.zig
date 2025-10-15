@@ -9,7 +9,7 @@ const c = @cImport({
     @cInclude("rlImGui.h");
 });
 
-pub fn update(alloc: std.mem.Allocator, buf: [:0]u8) !void {
+pub fn update(buf: [:0]u8) !void {
     c.rlImGuiBegin();
     defer c.rlImGuiEnd();
 
@@ -78,12 +78,16 @@ pub fn update(alloc: std.mem.Allocator, buf: [:0]u8) !void {
         _ = z.inputText("Save Path", .{ .buf = buf });
         if (z.button("Save", .{})) {
             const path = buf;
-            _ = rul.saveRules(path) catch void;
+            rul.saveRules(path) catch |err| {
+                std.debug.print("Failed to save rule. Error: {}\n", .{err});
+            };
         }
         _ = z.inputText("Load Path", .{ .buf = buf });
         if (z.button("Load", .{})) {
             const path = buf;
-            _ = rul.loadRules(alloc, path) catch void;
+            rul.loadRules(path) catch |err| {
+                std.debug.print("Failed to load rule. Error: {}\n", .{err});
+            };
         }
     }
 }

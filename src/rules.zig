@@ -38,49 +38,47 @@ pub fn printRules(rules: [cfg.colorAmnt][cfg.colorAmnt]f32) void {
 }
 
 /// Loads rules from a csv
-pub fn loadRules(allocator: std.mem.Allocator, absolutePath: [:0]u8) !void {
+pub fn loadRules(absolutePath: [:0]u8) !void {
     var buffer: [256]u8 = undefined;
     const file = try std.fs.openFileAbsoluteZ(absolutePath, .{ .mode = .read_only });
     defer file.close();
-    var reader = file.reader(&buffer).interface;
+    var file_reader = file.reader(&buffer);
+    const reader = &file_reader.interface;
     for (&cfg.rules) |*row| {
         for (row) |*col| {
             const buf = try reader.takeDelimiterExclusive(',');
-            defer allocator.free(buf);
             col.* = try std.fmt.parseFloat(f32, buf);
         }
         reader.toss(1);
     }
     for (&cfg.speed) |*s| {
         const buf = try reader.takeDelimiterExclusive(',');
-        defer allocator.free(buf);
         s.* = try std.fmt.parseInt(i32, buf, 10);
     }
     reader.toss(1);
     for (&cfg.radius) |*r| {
         const buf = try reader.takeDelimiterExclusive(',');
-        defer allocator.free(buf);
         r.* = try std.fmt.parseInt(i32, buf, 10);
     }
     reader.toss(1);
     {
         const buf = try reader.takeDelimiterExclusive(',');
-        defer allocator.free(buf);
         cfg.minDistance = try std.fmt.parseInt(i32, buf, 10);
     }
     {
         const buf = try reader.takeDelimiterExclusive(',');
-        defer allocator.free(buf);
         cfg.friction = try std.fmt.parseFloat(f32, buf);
     }
 }
 
 /// Save rules to a csv
 pub fn saveRules(absolutePath: [:0]u8) !void {
-    var buffer: [256]u8 = undefined;
-    const file = try std.fs.createFileAbsoluteZ(absolutePath, .{ .read = true });
+    const file = try std.fs.createFileAbsoluteZ(absolutePath, .{});
     defer file.close();
-    var writer = file.writer(&buffer).interface;
+    var buffer: [256]u8 = undefined;
+    var file_writer = file.writer(&buffer);
+    const writer = &file_writer.interface;
+
     for (cfg.rules) |row| {
         for (row) |col| {
             try writer.print("{d:.3},", .{col});

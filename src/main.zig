@@ -124,6 +124,6 @@ pub fn main() !void {
 
         part.updatePosition(&particles);
         part.draw(particles);
-        try img.update(allocator, buf);
+        try img.update(buf);
     }
 }

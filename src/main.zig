@@ -1,6 +1,7 @@
 const std = @import("std");
 const rl = @import("raylib");
 const z = @import("zgui");
+const builtin = @import("builtin");
 const part = @import("particle.zig");
 const cfg = @import("config.zig");
 const img = @import("imgui.zig");
@@ -16,8 +17,28 @@ pub fn main() !void {
     cfg.colors = cfg.customColors();
     cfg.rules = rules.ruleMatrix(true, true);
     rules.printRules(cfg.rules);
+    var gpa: std.heap.DebugAllocator(.{
+        .safety = true,
+        .thread_safe = true,
+    }) = undefined;
+    defer {
+        if (builtin.mode == .Debug) {
+            _=gpa.detectLeaks();
+            _=gpa.deinit();
+    }}
 
-    const allocator = std.heap.smp_allocator;
+
+    const allocator = allocblk: {
+        if (builtin.mode == .Debug) {
+            gpa = std.heap.DebugAllocator(.{ .safety = true, .thread_safe = true, }){};
+            break :allocblk gpa.allocator();
+        }
+        if (builtin.target.os.tag == .emscripten)
+            break :allocblk std.heap.c_allocator
+        else
+            break :allocblk std.heap.smp_allocator;
+        };
+
     // defer {
     //     const leaked = smp.deinit();
     //     if (leaked == .leak) {
@@ -58,6 +79,7 @@ pub fn main() !void {
     var particleArrs: [cfg.numThreads]std.ArrayList(part.particle) = undefined;
     for (0..cfg.numThreads) |i|
         particleArrs[i] = try std.ArrayList(part.particle).initCapacity(allocator, comptime @divFloor(cfg.particleMax, cfg.numThreads) + cfg.numThreads);
+    var particleArrEMCC = try std.ArrayList(part.particle).initCapacity(allocator, cfg.particleMax);
     defer allocator.free(pool);
 
     while (!rl.windowShouldClose()) {
@@ -87,12 +109,16 @@ pub fn main() !void {
         }
         rl.clearBackground(rl.getColor(0x1E1E2EFF));
 
-        for (pool, 0..) |*thread, i| {
-            thread.* = try std.Thread.spawn(.{}, part.updateVelocities, .{ particles, quadTree, i, &particleArrs[i] });
-        }
+        if (builtin.target.os.tag != .emscripten) {
+            for (pool, 0..) |*thread, i| {
+                thread.* = try std.Thread.spawn(.{}, part.updateVelocities, .{ particles, quadTree, i, &particleArrs[i] });
+            }
 
-        for (pool) |thread|
+            for (pool) |thread|
             thread.join();
+        } else {
+            try part.updateVelocities(particles, quadTree, 0, &particleArrEMCC);
+        }
         quadTree.deinit();
 
 

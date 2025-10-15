@@ -10,6 +10,7 @@ pub const colorAmnt = colors.len;
 pub const numThreads = 16;
 pub const minQuadSize = 1;
 pub const quadSplitLimit = 64;
+pub var leafCapacityMod: u32 = 1;
 pub var particleCount: i32 = initialParticles;
 pub var minDistance: i32 = 20;
 pub var friction: f32 = 0.95;

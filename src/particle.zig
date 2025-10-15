@@ -1,3 +1,4 @@
+const builtin = @import("builtin");
 const cfg = @import("config.zig");
 const std = @import("std");
 const rl = @import("raylib");
@@ -24,12 +25,18 @@ pub fn initParticles(allocator: std.mem.Allocator, amnt: u32) !std.array_list.Ma
 pub fn updateVelocities(
     particles: std.array_list.Managed(particle),
     qtree: quad.Quad(particle, cfg.quadSplitLimit),
-    threadidx: u64,
+    threadidx: usize,
     particlesInRange: *std.ArrayList(particle),
 ) !void {
     const rules = cfg.rules;
     var i = threadidx;
-    while (i < particles.items.len) : (i += cfg.numThreads) {
+    while (i < particles.items.len) : (i += iterval: {
+        if (builtin.target.os.tag == .emscripten)
+            break :iterval 1
+        else
+            break :iterval cfg.numThreads;
+        }) {
+
         var p: *particle = &(particles.items[i]);
         defer particlesInRange.clearRetainingCapacity();
         const radius = cfg.radius[p.colorId];

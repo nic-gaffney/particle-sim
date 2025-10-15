@@ -1,4 +1,5 @@
 const std = @import("std");
+const raylib = @import("raylib");
 
 pub fn build(b: *std.Build) !void {
     const target = b.standardTargetOptions(.{});
@@ -10,6 +11,7 @@ pub fn build(b: *std.Build) !void {
         .optimize = optimize,
     });
     const raylib_artifact = raylib_zig.artifact("raylib");
+
 
     const zgui = b.dependency("zgui", .{
         .shared = false,
@@ -34,7 +36,6 @@ pub fn build(b: *std.Build) !void {
             .optimize = optimize,
         }),
     });
-    // exe.linkLibCpp();
     exe.linkLibrary(raylib_artifact);
     exe.linkLibrary(zgui.artifact("imgui"));
     exe.addIncludePath(zgui.path("libs/imgui"));
@@ -60,6 +61,38 @@ pub fn build(b: *std.Build) !void {
     }
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
+
+    if (target.query.os_tag == .emscripten) {
+        const emsdk = raylib.emsdk;
+        const wasm = b.addLibrary(.{
+            .name = "particle-sim-web",
+            .root_module = exe.root_module,
+        });
+
+        wasm.linkLibCpp();
+
+        const install_dir: std.Build.InstallDir = .{ .custom = "web" };
+        const emcc_flags = emsdk.emccDefaultFlags(b.allocator, .{ .optimize = optimize });
+        const emcc_settings = emsdk.emccDefaultSettings(b.allocator, .{ .optimize = optimize });
+
+        const emcc_step = emsdk.emccStep(b, raylib_artifact, wasm, .{
+            .optimize = optimize,
+            .flags = emcc_flags,
+            .settings = emcc_settings,
+            .install_dir = install_dir,
+        });
+        b.getInstallStep().dependOn(emcc_step);
+
+        const html_filename = try std.fmt.allocPrint(b.allocator, "{s}.html", .{wasm.name});
+        const emrun_step = emsdk.emrunStep(
+            b,
+            b.getInstallPath(install_dir, html_filename),
+            &.{},
+        );
+
+        emrun_step.dependOn(emcc_step);
+        run_step.dependOn(emrun_step);
+    }
 
     // const exe_unit_tests = b.addTest(.{
     //     .root_source_file = b.path("src/quad.zig"),

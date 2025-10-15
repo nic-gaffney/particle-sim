@@ -26,7 +26,7 @@ pub fn Quad(T: type, comptime splitLimit: usize) type {
         pub fn init(allocator: std.mem.Allocator, tl: Point, br: Point) !Self {
             return Quad(T, splitLimit){
                 .allocator = allocator,
-                .nodes = try std.ArrayList(Node(T)).initCapacity(allocator, splitLimit),
+                .nodes = try std.ArrayList(Node(T)).initCapacity(allocator, splitLimit * cfg.leafCapacityMod),
                 .topLeft = tl,
                 .bottomRight = br,
                 .children = [4]?*Quad(T, splitLimit){ null, null, null, null },
@@ -44,12 +44,12 @@ pub fn Quad(T: type, comptime splitLimit: usize) type {
         }
 
         fn shouldSplit(self: Self) bool {
-            if (@abs(self.topLeft.x - self.bottomRight.x) <= 8 and
-                @abs(self.topLeft.y - self.bottomRight.y) <= 8) {
+            if (@abs(self.topLeft.x - self.bottomRight.x) <= cfg.minQuadSize and
+                @abs(self.topLeft.y - self.bottomRight.y) <= cfg.minQuadSize) {
                 return false;
             }
             if (self.nodes) |nodes|
-                return nodes.len >= cfg.quadSplitLimit;
+                return nodes.items.len >= cfg.quadSplitLimit;
             return false;
         }
 
@@ -116,11 +116,17 @@ pub fn Quad(T: type, comptime splitLimit: usize) type {
                 return;
             }
             if (self.nodes) |*nodes| {
-                nodes.appendBounded(node) catch {
-                    try self.split();
-                    const quadrant = self.getQuadrant(node.pos);
-                    try self.children[quadrant].?.insert(node);
-                };
+                if (!shouldSplit(self.*)) {
+                    nodes.appendBounded(node) catch {
+                        cfg.leafCapacityMod += 1;
+                        try nodes.ensureTotalCapacity(self.allocator, splitLimit * cfg.leafCapacityMod);
+                        try nodes.appendBounded(node);
+                    };
+                    return;
+                }
+                try self.split();
+                const quadrant = self.getQuadrant(node.pos);
+                try self.children[quadrant].?.insert(node);
             }
         }
 

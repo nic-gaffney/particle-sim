@@ -4,6 +4,10 @@
     .version = "0.3.0",
     .paths = .{ "src", "vendor" },
     .dependencies = .{
+        .raylib = .{
+            .url = "git+https://github.com/raysan5/raylib#8ada37d9671682f420a2be1f1afd4b06173b81ad",
+            .hash = "raylib-5.6.0-dev-whq8uCg2ywTzCiX3VEP9RuCMXR6_VnDBmkj8GjL_p5QN",
+        },
         .rlimgui = .{ .path = "vendor/rlImGui" },
         .raylib_zig = .{
             .url = "git+https://github.com/raylib-zig/raylib-zig?ref=devel#163b1ef2e993fe7cc7c76bb3213d98612f4b7676",
@@ -12,6 +16,10 @@
         .zgui = .{
             .url = "git+https://github.com/nic-gaffney/zgui#d90f353a733ab34f1c62e42c01ee87993075fa7e",
             .hash = "zgui-0.6.0-dev--L6sZBrubQAfBA0cnGPYocwjKh_ass7FrUkTadgicanG",
+        },
+        .emsdk = .{
+            .url = "git+https://github.com/emscripten-core/emsdk?ref=4.0.9#3bcf1dcd01f040f370e10fe673a092d9ed79ebb5",
+            .hash = "N-V-__8AAJl1DwBezhYo_VE6f53mPVm00R-Fk28NPW7P14EQ",
         },
     },
 }

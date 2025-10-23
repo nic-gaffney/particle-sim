@@ -1,5 +1,7 @@
 # Particle Simulator
 This is a simple particle simulator written in zig using [Raylib](https://www.raylib.com)
+
+Learn more about it on my [website](https://ngaffney.dev/portfolio/particle-sim/)
 ## Dependencies
 - rlImgui bindings
 - zgui
@@ -9,4 +11,4 @@ Compile with `zig build --release=fast` and run with `./zig-out/bin/particle-sim
 Alternatively, just run `zig build --release=fast run`
 
 ## Known Issues
-Sometimes there is a memory leak from outside zig that causes the entire program to freeze up and crash. Work in progress.
+If you reduce the radius to be equal to or below the minimum idstance, it will crash.

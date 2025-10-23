@@ -6,9 +6,9 @@ Learn more about it on my [website](https://ngaffney.dev/portfolio/particle-sim/
 - rlImgui bindings
 - zgui
 - raylib
-## Running
-Compile with `zig build --release=fast` and run with `./zig-out/bin/particle-sim`
-Alternatively, just run `zig build --release=fast run`
+## Building and Running
+Compile with `zig build` and run with `./zig-out/bin/particle-sim`
+Alternatively, just run `zig build run`
 
 ## Known Issues
-If you reduce the radius to be equal to or below the minimum idstance, it will crash.
+- If you reduce the radius to be equal to or below the minimum idstance, it will crash.
